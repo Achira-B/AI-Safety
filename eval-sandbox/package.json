@@ -1,0 +1,22 @@
+{
+  "name": "eval-sandbox",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A no-code elicitation-sweep sandbox: hold the measurement constant, sweep the framing, compare models.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "test": "node lib/selftest.mjs"
+  },
+  "dependencies": {
+    "next": "14.2.15",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "autoprefixer": "10.4.20",
+    "postcss": "8.4.47",
+    "tailwindcss": "3.4.14"
+  }
+}
