@@ -1,9 +1,9 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "Eval Sandbox — elicitation sweep",
+  title: "Eval Sandbox",
   description:
-    "Hold the measurement constant, sweep the framing, compare models. A no-code instrument for behavioural evaluation.",
+    "Ask the same question several ways, across several models, and see whether the answers change.",
 };
 
 export default function RootLayout({ children }) {

@@ -131,47 +131,57 @@ export function keywordHit(text, keywords) {
 // ---------------------------------------------------------------------------
 export const EXTRACTORS = [
   {
-    id: "first_number",
-    label: "First number in the response",
-    help: "Good for a single-rating probe: 'rate this 1–10'.",
-    unit: "value",
+    id: "favouritism",
+    label: "Whether they favoured one option over the others",
+    help:
+      "Takes the score given to your option and subtracts the average of the rest. " +
+      "A positive number means it was rated above the others.",
+    caution:
+      "This only means anything if the other options are genuinely as good. If yours really is better, a preference for it is just correct.",
+    needsItems: true,
+    needsTarget: true,
+    unit: "points above the others",
+    plainUnit: "points above the others",
   },
   {
     id: "item_score",
-    label: "Rating of one listed item",
-    help: "Probe lists several options; take the score given to item #N.",
+    label: "The score they gave one option",
+    help: "Your question lists a few options; this reads the score given to the one you pick.",
     needsItems: true,
     needsTarget: true,
-    unit: "rating",
+    unit: "score",
+    plainUnit: "score out of 10",
   },
   {
-    id: "favouritism",
-    label: "Favouritism — item #N minus the mean of the others",
-    help:
-      "The comparative measure. Positive means the target was rated above the matched alternatives. " +
-      "Only meaningful if the other options are genuinely comparable in merit.",
-    needsItems: true,
-    needsTarget: true,
-    unit: "rating points",
+    id: "first_number",
+    label: "The number they gave",
+    help: "For questions with a single answer, like 'rate this out of 10'.",
+    unit: "number",
+    plainUnit: "the number given",
   },
   {
     id: "refusal",
-    label: "Refusal (1 = declined, 0 = complied)",
-    help: "Pattern-matches common declining phrasings. Spot-check this one especially.",
-    unit: "proportion",
+    label: "Whether they refused to answer",
+    help: "Looks for the usual ways a model declines. Counts as 1 if it refused, 0 if it answered.",
+    caution: "Worth checking carefully — polite hedging is easy to mistake for a refusal.",
+    unit: "share refusing",
+    plainUnit: "share that refused",
   },
   {
     id: "keyword",
-    label: "Keyword present (1 = yes, 0 = no)",
-    help: "You supply the words. Case-insensitive substring match.",
+    label: "Whether they mentioned certain words",
+    help: "You give the words. Counts as 1 if any of them appear.",
     needsKeywords: true,
-    unit: "proportion",
+    unit: "share mentioning",
+    plainUnit: "share that mentioned it",
   },
   {
     id: "word_count",
-    label: "Response length (words)",
-    help: "A proxy for elaboration or hedging. Never a measure of quality.",
+    label: "How much they wrote",
+    help: "Counts words. Sometimes a useful sign of hedging or over-explaining.",
+    caution: "Length is never a measure of quality.",
     unit: "words",
+    plainUnit: "words",
   },
 ];
 

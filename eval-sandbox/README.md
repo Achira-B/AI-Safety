@@ -1,155 +1,163 @@
-# Eval Sandbox — v0
+# Eval Sandbox
 
-A no-code instrument for running an **elicitation sweep**: hold the measurement
-constant, vary only the framing around it, run it across several models many
-times, and see whether the behaviour moves.
+Ask one question several different ways, across several models, several times
+each — and see whether the answers change.
 
-The commercial no-code eval tools answer *"has our shipped chatbot regressed?"*.
-This one answers a different question: *does this model behave differently when
-it can tell it is being watched?*
-
----
-
-## What v0 does
-
-1. **Model shelf** — up to three models. Nickname, provider, model ID, API key.
-   Everything downstream refers to the nickname.
-2. **Probe builder** — two fields, kept separate on purpose. The *measurement*
-   is sent byte-for-byte identical in every condition; the *framings* are what
-   wraps around it. Every prompt is built as `framing + measurement`, so the
-   measurement cannot drift between conditions without you noticing.
-3. **Run the grid** — models × framings × N runs, with a progress bar and a stop
-   button.
-4. **Extract** — pick a deterministic rule from a dropdown; it is applied
-   identically to every response. Then read five sampled responses and confirm
-   the rule is picking up what you think it is. **Statistics stay locked until
-   you do.**
-5. **Results** — means with 95% bootstrap confidence intervals, consistency,
-   a chart, and CSV export of every raw response.
-
-### Deliberately not in v0
-
-No AI judge, no accounts, no saved cross-user dashboard, no automated matched
-controls, no multi-turn framings. Those are v2 in the scope document and each
-one carries a validity question that v0 does not have to answer.
+The question stays word-for-word identical every time. Only the sentence in
+front of it changes. That's the whole idea: if a model answers differently when
+it can tell it's being tested, this is what shows you.
 
 ---
 
-## Jargon, in plain terms
+## Using it
 
-| Term | What it means here |
-|---|---|
-| **Probe** | The thing you ask the model. |
-| **Measurement** | The part of the probe that produces the number you compare. Never varies. |
-| **Framing / elicitation** | The wrapper around the measurement. The only thing that varies. |
-| **Elicitation sweep** | Running the same measurement under several framings to see whether the answer depends on the costume. |
-| **Extractor** | A fixed rule that turns a response into a number. Deterministic — no model judges another model. |
-| **Signal** | The number the extractor produced for one response. |
-| **Favouritism** | Target's rating minus the mean rating of the matched alternatives. Positive = target was favoured. |
-| **Matched merit** | The alternatives are genuinely comparable, so a preference means bias rather than the target actually being better. |
-| **Confidence interval (CI)** | The range where the true mean plausibly sits given how few runs you did. Overlapping intervals = you have not shown a difference. |
-| **Bootstrap** | A way of computing that range by resampling your own data, rather than assuming it is bell-shaped. Ratings are not bell-shaped. |
-| **Modal agreement** | The share of runs that gave the single most common answer. The plainest measure of a model's self-consistency. |
+**1. Connect a model.** Click *Connect a model*, give it a name you'll recognise,
+pick the provider, paste your key. Up to three.
+
+**2. Type your question.** One question, in the big box.
+
+**3. Choose your ways of asking.** Three are set up already — plain, sounds like
+a test, sounds like a real person. Edit them or add your own.
+
+**4. Press Ask.** Every model gets the question under every framing, five times
+each. Replies come back side by side.
+
+**5. Say what to count.** Pick one thing to read out of every reply — a score, a
+refusal, a preference. The same rule is applied to all of them.
+
+**6. Check the working.** Five replies are shown with what was read from each.
+Confirm it looks right, and the results appear.
+
+Nothing is saved anywhere. Close the tab and it's gone, so export what you want
+to keep.
+
+---
+
+## A few things worth knowing
+
+**Why the question can't change between versions.** If the question and the
+framing both changed, and the answers came out different, you'd have no way of
+telling which one caused it. The app builds every prompt as framing + question
+so it can't drift.
+
+**Why it asks five times.** Models don't repeat themselves exactly. Ask once and
+you might be looking at a fluke.
+
+**Why it makes you check its working.** The number is read out of each reply by a
+fixed rule, so the same replies always give the same numbers and anyone can
+check them. But a rule can misread. An average built on a misreading looks
+exactly as convincing as a correct one, which is what makes it dangerous.
+
+**Reading the chart.** The bar is the average; the line through it is how sure
+you can be given how few times you asked. **If two lines overlap a lot, treat the
+bars as the same** — that's the most useful habit to build.
+
+**What it can't tell you.** It can't tell you a model is biased. It can show you
+that its answers shift with the framing, which is narrower and much easier to
+defend. And if the options you compared weren't genuinely equal to begin with, a
+preference between them might simply be correct.
+
+---
+
+## Where your keys go
+
+They're typed into the browser and kept there. Each request passes the key
+straight through this app's own relay to the model provider. Nothing is written
+to a server, a database, or a log — there are no accounts and no storage.
+
+The relay exists only because browsers aren't allowed to call the OpenAI or
+Anthropic APIs directly.
+
+- Deploy this publicly and anyone can open it, but they must bring their own
+  key, so there's no cost to you.
+- Anyone using your computer can read the stored keys. Untick *remember my keys*
+  on a shared machine, or use *Clear everything*.
+- `app/api/run/route.js` has a list of provider addresses it will talk to. That's
+  what stops a public copy being used as an open proxy. Add to it only if you
+  trust the host.
 
 ---
 
 ## Running it on your own machine
 
-You need [Node.js](https://nodejs.org) (version 18 or newer). Then, in a
-terminal, from inside this folder:
+You need [Node.js](https://nodejs.org) 18 or newer. In a terminal, from inside
+this folder:
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open <http://localhost:3000>.
+Then open <http://localhost:3000>.
 
-To check the maths and the extraction rules are behaving:
+To check the maths and the reading rules still behave:
 
 ```bash
 npm test
 ```
 
-That runs a set of hand-computed assertions against the extractors and the
-statistics. If it prints `0 failed`, the engine underneath the interface is
-doing what it claims.
+That runs 31 hand-worked assertions. If it says `0 failed`, the engine under the
+interface is doing what it claims.
 
 ---
 
-## Deploying to Vercel
+## Putting it online with Vercel
 
-**The easy route (no terminal):**
+**Without a terminal:**
 
-1. Put this folder in a GitHub repository. GitHub Desktop is the least painful
-   way if you would rather not use git on the command line.
-2. Go to [vercel.com/new](https://vercel.com/new) and import the repository.
-3. Vercel will detect Next.js on its own. Leave every setting at its default and
-   press Deploy. There are **no environment variables to set** — keys are
-   supplied in the browser at run time, never at build time.
-4. You get a URL. That is the whole deployment.
+1. Put this folder in a GitHub repository — GitHub Desktop is the least painful
+   way.
+2. Go to [vercel.com/new](https://vercel.com/new) and import it.
+3. Vercel detects Next.js by itself. Leave everything at the defaults and press
+   Deploy. There are **no environment variables to set** — keys are supplied in
+   the browser, never at build time.
 
-**The terminal route:**
+**With a terminal:**
 
 ```bash
 npm i -g vercel
 vercel
 ```
 
-Answer the prompts with the defaults.
-
-### One thing to know about function timeouts
-
-Each model call is one serverless request. On Vercel's Hobby plan a function may
-run for up to 60 seconds, which is set in `app/api/run/route.js`. A slow model
-with a long `max tokens` can exceed that and the row will show a timeout error.
-Lower max tokens or use a faster model if you see this.
+One thing to know: each model call is one serverless request, and on Vercel's
+free plan those can run for 60 seconds. A slow model with a long reply limit can
+overrun and show a timeout. Lower the reply length in advanced settings, or use a
+faster model.
 
 ---
 
-## Where your API keys live
+## The technical names for all this
 
-- Typed into the browser, kept in that browser's `localStorage`.
-- Sent with **each** request to this app's own `/api/run` route, which forwards
-  them to the provider and returns the text.
-- **Never** written to a file, a database, a log, or an environment variable on
-  the server.
+Kept out of the interface on purpose, but useful if you're writing this up.
 
-The relay exists because a browser cannot call the Anthropic or OpenAI APIs
-directly — the providers block cross-origin browser requests. The relay is the
-minimum needed to get around that, and it is stateless.
+| In the app | The term |
+|---|---|
+| Asking one fixed question several ways | **elicitation sweep** |
+| The fixed question | the **measurement** or **probe** |
+| Each opening line | an **elicitation** or **framing** |
+| The rule that reads a number out of a reply | an **extractor** |
+| The number itself | the **signal** |
+| Checking five by eye before trusting the rest | **spot-checking** |
+| The line through each bar | a 95% **bootstrap confidence interval** |
+| "How often they said the same thing" | **modal agreement** |
+| Comparing against equally good options | a **matched control**; the gap is **selectivity** |
 
-**Consequences worth being clear about:**
-
-- If you deploy this publicly, anyone can open the page — but they must supply
-  their own key, so there is no cost leak to you.
-- Anyone with access to your browser profile can read the stored keys. Untick
-  *remember API keys in this browser* on a shared machine, or use **clear
-  everything** in the footer when you are done.
-- `app/api/run/route.js` has an allow-list of provider hostnames. That is what
-  stops a public deployment being used as an open proxy to arbitrary URLs. Add
-  to it only if you trust the host.
+The confidence interval is a percentile bootstrap — resampling your own data
+rather than assuming it's normally distributed, because ratings out of ten
+aren't. The bootstrap is seeded, so the same data always gives the same interval.
 
 ---
 
-## Method notes — read before believing your own results
+## What's deliberately missing
 
-- **The measurement must not vary.** If it does, a gap between conditions could
-  be caused by the question rather than the framing, and the result is
-  uninterpretable. The two-field UI is there to make this hard to get wrong.
-- **Repetition is not padding.** A model's answer varies run to run. One
-  response per condition tells you nothing about whether a difference is real.
-- **Read the interval overlap, not the bar heights.** Bars that look different
-  with heavily overlapping intervals are not a finding.
-- **A high extraction-failure rate is itself a result.** It usually means models
-  are answering in a shape you did not anticipate. Read the failures before
-  changing the rule — and be suspicious of yourself if you find you are tuning
-  the rule until the numbers look how you hoped.
-- **Fewer than five usable runs in a cell is a pilot, not a result.** Bootstrap
-  intervals on tiny samples are optimistic.
-- **Matched merit does the real work in a favouritism probe.** If the
-  alternatives are not genuinely comparable, a preference for the target may
-  simply be correct.
+No AI judge, no accounts, no shared dashboard, no automated matched controls, no
+multi-turn framings. Each carries a validity question this version doesn't have
+to answer.
+
+If it grows, the order that makes sense: a matched control condition reporting
+selectivity and false-positive rate → a build-your-own rule editor → saved
+sessions. An AI-judge tier shouldn't arrive without a measure of how well it
+agrees with human ratings shipped alongside it.
 
 ---
 
@@ -157,24 +165,20 @@ minimum needed to get around that, and it is stateless.
 
 ```
 app/
-  page.jsx            the five-step flow and the run engine
-  layout.jsx          shell
-  globals.css         styling
+  page.jsx            the whole flow and the run engine
   api/run/route.js    the stateless relay to model providers
 components/
-  ModelShelf.jsx      up to three model slots + connection test
-  ProbeBuilder.jsx    measurement/framing split, framing ladder
-  RunPanel.jsx        grid size, progress, cancel
-  ExtractPanel.jsx    extractor config, spot-check gate, annotation
-  StatsView.jsx       chart, summary table, exports
+  Composer.jsx        the question box and its chips
+  Thread.jsx          replies, side by side
+  ScoreStep.jsx       what to count, and the check-my-working gate
+  ResultStep.jsx      chart, numbers, exports
+  SetupPanel.jsx      models and run settings (slide-over)
+  FramingsPanel.jsx   ways of asking (slide-over)
+  HelpPanel.jsx       plain-language explainer (slide-over)
+  Panel.jsx           the slide-over itself
 lib/
-  extractors.js       the Tier 2 rules
-  stats.js            mean, sd, seeded bootstrap CI, modal agreement
-  csv.js              row and summary export
-  selftest.mjs        hand-computed assertions (npm test)
+  extractors.js       the reading rules
+  stats.js            averages, spread, seeded bootstrap intervals
+  csv.js              exports
+  selftest.mjs        the assertions behind npm test
 ```
-
-The natural v1 additions, in the order they would earn their place: a matched
-control condition with selectivity and false-positive rate; a user-defined
-regex/keyword rule builder; saved sessions. The AI-judge tier should not arrive
-without an agreement metric against human annotation shipped alongside it.
