@@ -80,11 +80,6 @@ export default function Composer({
           </div>
         </div>
       </div>
-
-      <p className="hint text-center">
-        Your question goes to every model, under every way of asking, {config.runs} time
-        {config.runs === 1 ? "" : "s"} each — word for word the same every time.
-      </p>
     </div>
   );
 }

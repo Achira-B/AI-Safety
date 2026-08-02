@@ -21,6 +21,14 @@ const PROVIDERS = [
     where: "console.anthropic.com → API keys",
   },
   {
+    id: "gemini",
+    label: "Google Gemini",
+    provider: "openai",
+    baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
+    example: "gemini-3.5-flash",
+    where: "aistudio.google.com → Get API key",
+  },
+  {
     id: "openrouter",
     label: "OpenRouter (many models, one key)",
     provider: "openai",

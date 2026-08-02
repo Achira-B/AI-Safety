@@ -231,27 +231,20 @@ export default function Page() {
 
       <main className="flex-1 w-full max-w-3xl mx-auto px-5 py-8 space-y-7">
         {fresh && (
-          <div className="text-center space-y-3 pt-6 pb-2">
-            <h1 className="text-[26px] font-semibold tracking-tight">
-              Ask the same thing several ways.
-            </h1>
-            <p className="lede max-w-xl mx-auto">
-              See whether a model answers differently when it can tell it&apos;s being tested. Write
-              one question — it gets asked under each framing, several times, across the models you
-              choose.
-            </p>
-            {!readyModels.length && (
-              <div className="pt-2">
-                <button className="btn-primary" onClick={() => setPanel("setup")}>
-                  Connect a model to start
-                </button>
-                <p className="hint mt-2">You&apos;ll need an API key from a model provider.</p>
-              </div>
-            )}
-            {readyModels.length > 0 && !draft && (
-              <button className="btn-quiet text-[14px] underline" onClick={() => setDraft(EXAMPLE)}>
-                start from an example question
+          <div className="flex items-center justify-center gap-4 py-6">
+            {!readyModels.length ? (
+              <button className="btn-primary" onClick={() => setPanel("setup")}>
+                Connect a model
               </button>
+            ) : (
+              !draft && (
+                <button
+                  className="btn-quiet text-[14px] underline"
+                  onClick={() => setDraft(EXAMPLE)}
+                >
+                  start from an example question
+                </button>
+              )
             )}
           </div>
         )}
