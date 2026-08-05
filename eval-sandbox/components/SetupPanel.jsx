@@ -240,7 +240,7 @@ export default function SetupPanel({
   remember,
   setRemember,
   onClearAll,
-  max = 3,
+  max = 8,
 }) {
   return (
     <Panel

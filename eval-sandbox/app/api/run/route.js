@@ -60,12 +60,19 @@ async function callOpenAICompatible({ baseUrl, apiKey, modelId, prompt, temperat
   if (system && system.trim()) messages.push({ role: "system", content: system });
   messages.push({ role: "user", content: prompt });
 
+  const headers = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${apiKey}`,
+  };
+  // OpenRouter attributes usage to these; harmless elsewhere, so only sent there.
+  if (check.url.hostname === "openrouter.ai") {
+    headers["HTTP-Referer"] = "https://eval-sandbox.vercel.app";
+    headers["X-Title"] = "Eval Sandbox";
+  }
+
   const res = await fetch(endpoint, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
+    headers,
     body: JSON.stringify({
       model: modelId,
       messages,
@@ -76,7 +83,11 @@ async function callOpenAICompatible({ baseUrl, apiKey, modelId, prompt, temperat
 
   const text = await res.text();
   if (!res.ok) {
-    return { ok: false, error: `HTTP ${res.status}: ${text.slice(0, 400)}` };
+    const sent =
+      `sent to ${check.url.hostname} · key ${apiKey.length} chars` +
+      (apiKey.length ? ` starting "${apiKey.slice(0, 8)}"` : " (EMPTY)") +
+      ` · model "${modelId}"`;
+    return { ok: false, error: `HTTP ${res.status} — ${sent} — ${text.slice(0, 300)}` };
   }
   let data;
   try {
@@ -121,7 +132,11 @@ async function callAnthropic({ baseUrl, apiKey, modelId, prompt, temperature, ma
 
   const text = await res.text();
   if (!res.ok) {
-    return { ok: false, error: `HTTP ${res.status}: ${text.slice(0, 400)}` };
+    const sent =
+      `sent to ${check.url.hostname} · key ${apiKey.length} chars` +
+      (apiKey.length ? ` starting "${apiKey.slice(0, 8)}"` : " (EMPTY)") +
+      ` · model "${modelId}"`;
+    return { ok: false, error: `HTTP ${res.status} — ${sent} — ${text.slice(0, 300)}` };
   }
   let data;
   try {
@@ -150,14 +165,20 @@ export async function POST(request) {
 
   const {
     provider,
-    baseUrl,
-    modelId,
-    apiKey,
+    baseUrl: rawBaseUrl,
+    modelId: rawModelId,
+    apiKey: rawApiKey,
     prompt,
     system = "",
     temperature = 1,
     maxTokens = 512,
   } = body || {};
+
+  // Pasted keys routinely carry a leading/trailing space or a stray newline,
+  // which produces a malformed Authorization header and an opaque 401.
+  const apiKey = String(rawApiKey ?? "").trim();
+  const modelId = String(rawModelId ?? "").trim();
+  const baseUrl = String(rawBaseUrl ?? "").trim();
 
   if (!apiKey) return badRequest("No API key supplied for this model slot.");
   if (!modelId) return badRequest("No model ID supplied for this model slot.");
