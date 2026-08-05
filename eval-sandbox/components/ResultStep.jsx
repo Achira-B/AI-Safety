@@ -5,7 +5,7 @@ import { applyExtractor, extractorById } from "@/lib/extractors";
 import { summariseByCell, fmt } from "@/lib/stats";
 import { rowsToCSV, summaryToCSV, download } from "@/lib/csv";
 
-const COLOURS = ["#4f46e5", "#0d9488", "#b45309", "#9333ea"];
+const COLOURS = ["#4648D4", "#0C8A7E", "#B07D12", "#7C4DBE"];
 
 function overlap(a, b) {
   return a.ciLo <= b.ciHi && b.ciLo <= a.ciHi;
@@ -41,7 +41,7 @@ function Chart({ cells, unit }) {
         {ticks.map((v, i) => (
           <g key={i}>
             <line x1={M.left} x2={W - M.right} y1={y(v)} y2={y(v)} stroke="#efece8" />
-            <text x={M.left - 10} y={y(v) + 4} textAnchor="end" fill="#a8a29e" fontSize="11">
+            <text x={M.left - 10} y={y(v) + 4} textAnchor="end" fill="#9098A6" fontSize="11">
               {fmt(v, 1)}
             </text>
           </g>
@@ -86,7 +86,7 @@ function Chart({ cells, unit }) {
                 x={gx + groupW / 2}
                 y={H - M.bottom + 20}
                 textAnchor="middle"
-                fill="#78716c"
+                fill="#6E7280"
                 fontSize="12"
               >
                 {f.length > 20 ? f.slice(0, 19) + "…" : f}
@@ -95,12 +95,12 @@ function Chart({ cells, unit }) {
           );
         })}
 
-        <line x1={M.left} x2={W - M.right} y1={M.top + plotH} y2={M.top + plotH} stroke="#e8e5e1" />
+        <line x1={M.left} x2={W - M.right} y1={M.top + plotH} y2={M.top + plotH} stroke="#E1E4EF" />
 
         {models.map((m, mi) => (
           <g key={m} transform={`translate(${M.left + mi * 140}, ${H - 12})`}>
             <rect width="10" height="10" y="-9" rx="2" fill={COLOURS[mi % COLOURS.length]} />
-            <text x="16" fill="#78716c" fontSize="12">
+            <text x="16" fill="#6E7280" fontSize="12">
               {m}
             </text>
           </g>
@@ -109,7 +109,7 @@ function Chart({ cells, unit }) {
         <text
           transform={`translate(13, ${M.top + plotH / 2}) rotate(-90)`}
           textAnchor="middle"
-          fill="#a8a29e"
+          fill="#9098A6"
           fontSize="11"
         >
           {unit}

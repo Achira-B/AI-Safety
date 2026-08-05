@@ -210,7 +210,8 @@ export default function Page() {
     <div className="min-h-screen flex flex-col">
       <header className="border-b border-line bg-card/80 backdrop-blur sticky top-0 z-30">
         <div className="max-w-3xl mx-auto px-5 h-14 flex items-center gap-3">
-          <span className="font-semibold">Eval Sandbox</span>
+          <span className="w-[7px] h-[7px] rounded-full bg-accent shrink-0" aria-hidden />
+          <span className="font-semibold tracking-[-0.01em]">Eval Sandbox</span>
           <button className="btn-quiet text-[14px] ml-auto" onClick={() => setPanel("help")}>
             How this works
           </button>
@@ -231,21 +232,35 @@ export default function Page() {
 
       <main className="flex-1 w-full max-w-3xl mx-auto px-5 py-8 space-y-7">
         {fresh && (
-          <div className="flex items-center justify-center gap-4 py-6">
-            {!readyModels.length ? (
-              <button className="btn-primary" onClick={() => setPanel("setup")}>
-                Connect a model
-              </button>
-            ) : (
-              !draft && (
-                <button
-                  className="btn-quiet text-[14px] underline"
-                  onClick={() => setDraft(EXAMPLE)}
-                >
-                  start from an example question
+          <div className="py-6 rise">
+            <span className="rule" aria-hidden />
+            <p className="kicker mb-3">Elicitation sweep</p>
+            <h1 className="display max-w-xl">
+              Ask one question several ways. See whether the answer changes.
+            </h1>
+            <p className="lede mt-4 max-w-xl">
+              The question stays word-for-word identical every time — only the sentence in front of
+              it changes. Every model answers under every framing, several times each.
+            </p>
+            <div className="flex flex-wrap items-center gap-4 mt-7">
+              {!readyModels.length ? (
+                <button className="btn-primary" onClick={() => setPanel("setup")}>
+                  Connect a model
                 </button>
-              )
-            )}
+              ) : (
+                !draft && (
+                  <button
+                    className="btn-quiet text-[14px] underline"
+                    onClick={() => setDraft(EXAMPLE)}
+                  >
+                    start from an example question
+                  </button>
+                )
+              )}
+              <button className="btn-quiet text-[14px]" onClick={() => setPanel("help")}>
+                How this works
+              </button>
+            </div>
           </div>
         )}
 

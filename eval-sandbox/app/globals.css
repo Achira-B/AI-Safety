@@ -3,11 +3,11 @@
 @tailwind utilities;
 
 html {
-  background: #faf9f7;
+  background: #F8F9FF;
 }
 
 body {
-  color: #1c1917;
+  color: #0B1C30;
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   font-size: 15.5px;
   line-height: 1.6;
@@ -15,6 +15,23 @@ body {
 }
 
 @layer components {
+  /* ── type scale ─────────────────────────────────────────────
+     The interface had no display sizes, so everything read at the
+     same weight. These give it a hierarchy. */
+  .display {
+    @apply text-[30px] leading-[1.15] font-bold tracking-[-0.01em] text-ink;
+  }
+  .title {
+    @apply text-[21px] leading-snug font-bold text-ink;
+  }
+  .kicker {
+    @apply text-[12px] font-bold uppercase tracking-kicker text-soft;
+  }
+  /* the small indigo bar that sits above a kicker */
+  .rule {
+    @apply block w-7 h-[3px] rounded-full bg-accent mb-3;
+  }
+
   .card {
     @apply bg-card border border-line rounded-xl2 shadow-card;
   }
@@ -56,7 +73,7 @@ body {
   height: 8px;
 }
 .scroll-thin::-webkit-scrollbar-thumb {
-  background: #ddd9d4;
+  background: #D3D8EA;
   border-radius: 999px;
 }
 .scroll-thin::-webkit-scrollbar-track {
