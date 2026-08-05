@@ -147,25 +147,38 @@ export default function Page() {
         const job = jobs[cursor++];
         let response = "";
         let error = "";
-        try {
-          const res = await fetch("/api/run", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              provider: job.provider,
-              baseUrl: job.baseUrl,
-              modelId: job.modelId,
-              apiKey: job.apiKey,
-              prompt: job.prompt,
-              temperature: config.temperature,
-              maxTokens: config.maxTokens,
-            }),
-          });
-          const data = await res.json();
-          if (data.ok) response = data.text;
-          else error = data.error || `HTTP ${res.status}`;
-        } catch (err) {
-          error = String(err?.message || err);
+        // Rate limits are transient and vary by provider and tier, so back off
+        // and retry rather than asking anyone to know each provider's limit.
+        let delay = 1500;
+        for (let attempt = 0; attempt < 4; attempt++) {
+          try {
+            const res = await fetch("/api/run", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                provider: job.provider,
+                baseUrl: job.baseUrl,
+                modelId: job.modelId,
+                apiKey: job.apiKey,
+                prompt: job.prompt,
+                temperature: config.temperature,
+                maxTokens: config.maxTokens,
+              }),
+            });
+            const data = await res.json();
+            if (data.ok) {
+              response = data.text;
+              error = "";
+              break;
+            }
+            error = data.error || `HTTP ${res.status}`;
+          } catch (err) {
+            error = String(err?.message || err);
+          }
+          const rateLimited = /\b429\b|rate.?limit|too many requests/i.test(error);
+          if (!rateLimited || cancelRef.current) break;
+          await new Promise((r) => setTimeout(r, delay));
+          delay *= 2;
         }
         const { apiKey, ...safe } = job;
         collected.push({
@@ -205,6 +218,9 @@ export default function Page() {
   }
 
   const fresh = rows.length === 0 && !running;
+  const modelCount = new Set(rows.map((r) => r.modelName)).size;
+  // Side-by-side columns need room: 768px across four models is ~170px each.
+  const wide = modelCount > 1 ? "max-w-6xl" : "max-w-3xl";
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -230,7 +246,7 @@ export default function Page() {
         </div>
       </header>
 
-      <main className="flex-1 w-full max-w-3xl mx-auto px-5 py-8 space-y-7">
+      <main className={`flex-1 w-full ${wide} mx-auto px-5 py-8 space-y-7 transition-[max-width] duration-300`}>
         {fresh && (
           <div className="py-6 rise">
             <span className="rule" aria-hidden />

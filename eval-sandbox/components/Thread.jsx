@@ -38,7 +38,7 @@ function ReplyColumn({ modelName, replies }) {
 
       <div
         className={`flex-1 rounded-xl2 border p-3.5 text-[14px] leading-relaxed whitespace-pre-wrap
-                    overflow-y-auto scroll-thin max-h-72 ${
+                    overflow-y-auto scroll-thin max-h-96 ${
                       r.error ? "border-bad/30 bg-bad/5 text-bad" : "border-line bg-paper"
                     }`}
       >
