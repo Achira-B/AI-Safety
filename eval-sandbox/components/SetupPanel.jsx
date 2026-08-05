@@ -95,13 +95,14 @@ function ModelCard({ model, index, onChange, onRemove, canRemove }) {
           apiKey: model.apiKey,
           prompt: "Reply with exactly the word: ready",
           temperature: 0,
-          maxTokens: 16,
+          maxTokens: 256,
+          mode: "check",
         }),
       });
       const data = await res.json();
       onChange({
         status: data.ok
-          ? { ok: true, message: "Working." }
+          ? { ok: true, message: data.note || "Working." }
           : { ok: false, message: data.error || "Something went wrong." },
       });
     } catch (err) {

@@ -51,7 +51,7 @@ function checkUrl(raw) {
   return { ok: true, url: u };
 }
 
-async function callOpenAICompatible({ baseUrl, apiKey, modelId, prompt, temperature, maxTokens, system }) {
+async function callOpenAICompatible({ baseUrl, apiKey, modelId, prompt, temperature, maxTokens, system, probe }) {
   const endpoint = baseUrl.replace(/\/+$/, "") + "/chat/completions";
   const check = checkUrl(endpoint);
   if (!check.ok) return { ok: false, error: check.error };
@@ -95,19 +95,53 @@ async function callOpenAICompatible({ baseUrl, apiKey, modelId, prompt, temperat
   } catch {
     return { ok: false, error: `Could not parse provider response: ${text.slice(0, 300)}` };
   }
-  const content = data?.choices?.[0]?.message?.content;
-  if (typeof content !== "string") {
-    return { ok: false, error: `No text in provider response: ${text.slice(0, 300)}` };
+  const choice = data?.choices?.[0];
+  const msg = choice?.message;
+  let content = msg?.content;
+
+  // Some providers return content as an array of blocks rather than a string.
+  if (Array.isArray(content)) {
+    content = content
+      .map((b) => (typeof b === "string" ? b : b?.text ?? ""))
+      .join("")
+      .trim();
   }
+
+  // Reasoning models that run out of budget often leave content empty and put
+  // everything in `reasoning`. Better to surface that than to drop the row.
+  if (typeof content !== "string" || !content.trim()) {
+    const reasoning = typeof msg?.reasoning === "string" ? msg.reasoning.trim() : "";
+    if (reasoning) content = reasoning;
+  }
+
+  if (typeof content !== "string" || !content.trim()) {
+    const fin = choice?.finish_reason || choice?.native_finish_reason || "unknown";
+    const hint =
+      fin === "length"
+        ? "Ran out of tokens before writing an answer. Raise max tokens in settings — reasoning models often need 1000+."
+        : fin === "content_filter"
+          ? "The provider filtered this response."
+          : "The model returned an empty answer.";
+    // A connection check only asks "did we reach it with this key". Whether the
+    // model chose to write anything is a different question, and not a failure.
+    if (probe) {
+      return { ok: true, text: "", note: `Connected. No text returned (${fin}).` };
+    }
+    return {
+      ok: false,
+      error: `Empty reply (finish_reason: ${fin}). ${hint} — ${text.slice(0, 200)}`,
+    };
+  }
+
   return {
     ok: true,
     text: content,
     usage: data?.usage ?? null,
-    finish: data?.choices?.[0]?.finish_reason ?? null,
+    finish: choice?.finish_reason ?? null,
   };
 }
 
-async function callAnthropic({ baseUrl, apiKey, modelId, prompt, temperature, maxTokens, system }) {
+async function callAnthropic({ baseUrl, apiKey, modelId, prompt, temperature, maxTokens, system, probe }) {
   const endpoint = (baseUrl || "https://api.anthropic.com/v1").replace(/\/+$/, "") + "/messages";
   const check = checkUrl(endpoint);
   if (!check.ok) return { ok: false, error: check.error };
@@ -150,6 +184,9 @@ async function callAnthropic({ baseUrl, apiKey, modelId, prompt, temperature, ma
     .join("\n")
     .trim();
   if (!content) {
+    if (probe) {
+      return { ok: true, text: "", note: `Connected. No text returned (${data?.stop_reason ?? "unknown"}).` };
+    }
     return { ok: false, error: `No text in provider response: ${text.slice(0, 300)}` };
   }
   return { ok: true, text: content, usage: data?.usage ?? null, finish: data?.stop_reason ?? null };
@@ -172,6 +209,7 @@ export async function POST(request) {
     system = "",
     temperature = 1,
     maxTokens = 512,
+    mode = "run",
   } = body || {};
 
   // Pasted keys routinely carry a leading/trailing space or a stray newline,
@@ -188,7 +226,11 @@ export async function POST(request) {
   const maxTok = Math.max(16, Math.min(4096, Number(maxTokens) || 512));
 
   try {
-    const args = { baseUrl, apiKey, modelId, prompt, system, temperature: temp, maxTokens: maxTok };
+    const args = {
+      baseUrl, apiKey, modelId, prompt, system,
+      temperature: temp, maxTokens: maxTok,
+      probe: mode === "check",
+    };
     const result =
       provider === "anthropic"
         ? await callAnthropic(args)
