@@ -2,15 +2,17 @@ Draft Readme
 
 # Eval Sandbox
 
-## Running it
-It runs here currently: [Eval Sandbox](https://eval-sandbox.vercel.app/)
-
 Ask one question several different ways, across several models, several times
 each — and see whether the answers change.
 
 The question stays word-for-word identical every time. Only the sentence in
 front of it changes. That's the whole idea: if a model answers differently when
 it can tell it's being tested, this is what shows you.
+
+---
+
+## Running it
+It runs here currently: [Eval Sandbox](https://eval-sandbox.vercel.app/)
 
 ---
 
