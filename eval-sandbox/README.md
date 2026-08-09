@@ -1,4 +1,9 @@
+Draft Readme
+
 # Eval Sandbox
+
+## Running it
+It runs here currently: [Eval Sandbox](https://eval-sandbox.vercel.app/)
 
 Ask one question several different ways, across several models, several times
 each — and see whether the answers change.
@@ -63,66 +68,7 @@ preference between them might simply be correct.
 
 They're typed into the browser and kept there. Each request passes the key
 straight through this app's own relay to the model provider. Nothing is written
-to a server, a database, or a log — there are no accounts and no storage.
-
-The relay exists only because browsers aren't allowed to call the OpenAI or
-Anthropic APIs directly.
-
-- Deploy this publicly and anyone can open it, but they must bring their own
-  key, so there's no cost to you.
-- Anyone using your computer can read the stored keys. Untick *remember my keys*
-  on a shared machine, or use *Clear everything*.
-- `app/api/run/route.js` has a list of provider addresses it will talk to. That's
-  what stops a public copy being used as an open proxy. Add to it only if you
-  trust the host.
-
----
-
-## Running it on your own machine
-
-You need [Node.js](https://nodejs.org) 18 or newer. In a terminal, from inside
-this folder:
-
-```bash
-npm install
-npm run dev
-```
-
-Then open <http://localhost:3000>.
-
-To check the maths and the reading rules still behave:
-
-```bash
-npm test
-```
-
-That runs 31 hand-worked assertions. If it says `0 failed`, the engine under the
-interface is doing what it claims.
-
----
-
-## Putting it online with Vercel
-
-**Without a terminal:**
-
-1. Put this folder in a GitHub repository — GitHub Desktop is the least painful
-   way.
-2. Go to [vercel.com/new](https://vercel.com/new) and import it.
-3. Vercel detects Next.js by itself. Leave everything at the defaults and press
-   Deploy. There are **no environment variables to set** — keys are supplied in
-   the browser, never at build time.
-
-**With a terminal:**
-
-```bash
-npm i -g vercel
-vercel
-```
-
-One thing to know: each model call is one serverless request, and on Vercel's
-free plan those can run for 60 seconds. A slow model with a long reply limit can
-overrun and show a timeout. Lower the reply length in advanced settings, or use a
-faster model.
+to a server, a database, or a log — there are no accounts and no storage at the moment.
 
 ---
 
@@ -145,19 +91,6 @@ Kept out of the interface on purpose, but useful if you're writing this up.
 The confidence interval is a percentile bootstrap — resampling your own data
 rather than assuming it's normally distributed, because ratings out of ten
 aren't. The bootstrap is seeded, so the same data always gives the same interval.
-
----
-
-## What's deliberately missing
-
-No AI judge, no accounts, no shared dashboard, no automated matched controls, no
-multi-turn framings. Each carries a validity question this version doesn't have
-to answer.
-
-If it grows, the order that makes sense: a matched control condition reporting
-selectivity and false-positive rate → a build-your-own rule editor → saved
-sessions. An AI-judge tier shouldn't arrive without a measure of how well it
-agrees with human ratings shipped alongside it.
 
 ---
 
