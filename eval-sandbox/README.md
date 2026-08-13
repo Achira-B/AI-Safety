@@ -1,5 +1,3 @@
-Draft Readme
-
 # Eval Sandbox
 
 Ask one question several different ways, across several models, several times
@@ -9,10 +7,14 @@ The question stays word-for-word identical every time. Only the sentence in
 front of it changes. That's the whole idea: if a model answers differently when
 it can tell it's being tested, this is what shows you.
 
+This is a no-code tool to run model evaluations.
+
+This ReadMe is the tech side of things. If you're interested in learning more about why I built it, see [here](https://pentagonal-paint-329.notion.site/Eval-sandbox-3bbdf367f9ad80af91c7e256362f2f18?pvs=74).
+
 ---
 
 ## Running it
-It runs here currently: [Eval Sandbox](https://eval-sandbox.vercel.app/)
+It runs here, currently: [Eval Sandbox](https://eval-sandbox.vercel.app/)
 
 ---
 
@@ -36,7 +38,7 @@ refusal, a preference. The same rule is applied to all of them.
 Confirm it looks right, and the results appear.
 
 Nothing is saved anywhere. Close the tab and it's gone, so export what you want
-to keep.
+to keep - you have been warned.
 
 ---
 
@@ -74,21 +76,7 @@ to a server, a database, or a log — there are no accounts and no storage at th
 
 ---
 
-## The technical names for all this
-
-Kept out of the interface on purpose, but useful if you're writing this up.
-
-| In the app | The term |
-|---|---|
-| Asking one fixed question several ways | **elicitation sweep** |
-| The fixed question | the **measurement** or **probe** |
-| Each opening line | an **elicitation** or **framing** |
-| The rule that reads a number out of a reply | an **extractor** |
-| The number itself | the **signal** |
-| Checking five by eye before trusting the rest | **spot-checking** |
-| The line through each bar | a 95% **bootstrap confidence interval** |
-| "How often they said the same thing" | **modal agreement** |
-| Comparing against equally good options | a **matched control**; the gap is **selectivity** |
+## Misc
 
 The confidence interval is a percentile bootstrap — resampling your own data
 rather than assuming it's normally distributed, because ratings out of ten
