@@ -1,6 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import Panel from "./Panel";
+import { parseTurns, renderTurns } from "@/lib/turns";
+import { generateTranscript } from "@/lib/generate";
 
 // Starting points, most to least obvious that a test is happening.
 const SUGGESTIONS = [
@@ -33,8 +36,42 @@ const SUGGESTIONS = [
   },
 ];
 
-export default function FramingsPanel({ open, onClose, probe, setProbe }) {
+export default function FramingsPanel({ open, onClose, probe, setProbe, models = [], config = {} }) {
   const { framings, measurement } = probe;
+
+  // Which framing is mid-generation, and anything that went wrong.
+  const [busy, setBusy] = useState(null);
+  const [genError, setGenError] = useState({});
+  const ready = models.filter((m) => m.enabled && m.name && m.modelId && m.apiKey);
+  const [genModel, setGenModel] = useState("");
+  const chosen = ready.find((m) => m.name === genModel) || ready[0];
+
+  // A framing that is all USER: turns is a script waiting for the other half.
+  function pendingTurns(text) {
+    const parsed = parseTurns(text);
+    if (!parsed || !parsed.length) return null;
+    return parsed.every((t) => t.role === "user") ? parsed : null;
+  }
+
+  async function generate(f) {
+    const pending = pendingTurns(f.text);
+    if (!pending || !chosen) return;
+
+    setBusy(f.id);
+    setGenError((e) => ({ ...e, [f.id]: "" }));
+
+    const result = await generateTranscript({
+      model: chosen,
+      userTurns: pending.map((t) => t.content),
+      temperature: config.temperature ?? 1,
+      maxTokens: config.maxTokens ?? 512,
+    });
+
+    // Even a failed run leaves a partial transcript worth looking at.
+    if (result.turns.length) update(f.id, { text: renderTurns(result.turns) });
+    if (!result.ok) setGenError((e) => ({ ...e, [f.id]: result.error }));
+    setBusy(null);
+  }
 
   function update(id, patch) {
     setProbe({
@@ -101,10 +138,41 @@ export default function FramingsPanel({ open, onClose, probe, setProbe }) {
 
           <textarea
             className="field h-24 resize-y"
-            placeholder="Leave empty to ask the question with nothing in front of it."
+            placeholder="Leave empty to ask the question with nothing in front of it. Or write a conversation using USER: and ASSISTANT: at the start of a line."
             value={f.text}
             onChange={(e) => update(f.id, { text: e.target.value })}
           />
+
+          {pendingTurns(f.text) && (
+            <div className="rounded-lg border border-accent/30 bg-accentSoft p-3 space-y-2">
+              <p className="text-[13px] leading-relaxed">
+                This is all user turns. You can let a model write its own replies rather than
+                authoring them — then the conversation is one it actually had.
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  className="btn text-[13px]"
+                  disabled={!chosen || busy === f.id}
+                  onClick={() => generate(f)}
+                >
+                  {busy === f.id ? "Holding the conversation…" : "Generate replies"}
+                </button>
+                {ready.length > 1 && (
+                  <select
+                    className="field py-1.5 text-[13px] w-auto"
+                    value={chosen?.name ?? ""}
+                    onChange={(e) => setGenModel(e.target.value)}
+                  >
+                    {ready.map((m) => (
+                      <option key={m.name} value={m.name}>{m.name}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+              {!chosen && <p className="hint">Connect a model first.</p>}
+              {genError[f.id] && <p className="text-[13px] text-bad">{genError[f.id]}</p>}
+            </div>
+          )}
 
           <div className="rounded-lg bg-paper border border-line p-3 text-[13px] leading-relaxed">
             <span className="text-faint whitespace-pre-wrap">{f.text || "(nothing) "}</span>
@@ -112,7 +180,9 @@ export default function FramingsPanel({ open, onClose, probe, setProbe }) {
               {measurement ? measurement.slice(0, 90) + (measurement.length > 90 ? "…" : "") : "your question"}
             </span>
             <span className="block mt-2 text-faint text-[12px]">
-              grey = this version&apos;s opening · black = your question, identical everywhere
+              {parseTurns(f.text)
+                ? "grey = the conversation so far · black = your question, asked as the final turn"
+                : "grey = this version's opening · black = your question, identical everywhere"}
             </span>
           </div>
         </div>

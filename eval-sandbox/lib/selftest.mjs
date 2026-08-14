@@ -142,5 +142,53 @@ check("extraction failures counted separately", a.failedExtract, 1);
 check("n reflects usable rows only", a.n, 2);
 check("cells split by model", cells.length, 2);
 
+// ---------------------------------------------------------------------------
+// Conversation turns
+//
+// A framing can be a whole conversation. The risk here is silent: a parser that
+// mangles a transcript still returns something, and the run proceeds against an
+// input nobody looked at. So check the boundaries, not just the happy path.
+
+const { parseTurns, renderTurns } = await load("turns.js");
+
+console.log("\nconversation turns");
+
+check("no markers means single-message mode", parseTurns("Below is a report:\n"), null);
+check("empty text means single-message mode", parseTurns(""), null);
+check("null text means single-message mode", parseTurns(null), null);
+
+check("splits a transcript into turns", parseTurns("USER: hi\nASSISTANT: hello\nUSER: ok"), [
+  { role: "user", content: "hi" },
+  { role: "assistant", content: "hello" },
+  { role: "user", content: "ok" },
+]);
+
+check("markers are case-insensitive", parseTurns("user: a\nAssistant: b"), [
+  { role: "user", content: "a" },
+  { role: "assistant", content: "b" },
+]);
+
+// A colon mid-sentence must not be read as a role marker, or any transcript
+// containing "note:" or "problem:" silently loses a turn.
+check("only line-start markers count", parseTurns("USER: note: a colon\nASSISTANT: fine"), [
+  { role: "user", content: "note: a colon" },
+  { role: "assistant", content: "fine" },
+]);
+
+check("blank turns are dropped", parseTurns("USER: a\nASSISTANT:\nUSER: b"), [
+  { role: "user", content: "a" },
+  { role: "user", content: "b" },
+]);
+
+// The CSV has to show what the model actually saw, or the spot-check is a lie.
+check(
+  "render round-trips a transcript",
+  renderTurns([
+    { role: "user", content: "a" },
+    { role: "assistant", content: "b" },
+  ]),
+  "USER: a\n\nASSISTANT: b"
+);
+
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

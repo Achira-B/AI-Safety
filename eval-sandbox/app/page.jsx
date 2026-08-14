@@ -8,6 +8,7 @@ import Composer from "@/components/Composer";
 import Thread from "@/components/Thread";
 import ScoreStep from "@/components/ScoreStep";
 import ResultStep from "@/components/ResultStep";
+import { parseTurns, renderTurns } from "@/lib/turns";
 
 const STORAGE_KEY = "eval-sandbox-v0";
 
@@ -113,6 +114,14 @@ export default function Page() {
     const jobs = [];
     for (const m of readyModels) {
       for (const f of probe.framings) {
+        // A framing written with USER:/ASSISTANT: markers becomes a real
+        // conversation, with the measurement asked as the final user turn.
+        // Without markers it stays a prefix, exactly as before.
+        const priorTurns = parseTurns(f.text);
+        const turns = priorTurns
+          ? [...priorTurns, { role: "user", content: measurement }]
+          : null;
+
         for (let i = 0; i < config.runs; i++) {
           jobs.push({
             id: `${m.name}|${f.label}|${i}|${jobs.length}`,
@@ -124,7 +133,11 @@ export default function Page() {
             framingLabel: f.label,
             framingText: f.text,
             measurementText: measurement,
-            prompt: `${f.text}${measurement}`,
+            turns,
+            turnCount: turns ? turns.length : 1,
+            // Always a readable record of everything the model saw, so the
+            // CSV and the spot-check show the real input either way.
+            prompt: turns ? renderTurns(turns) : `${f.text}${measurement}`,
             runIndex: i,
             temperature: config.temperature,
           });
@@ -161,6 +174,7 @@ export default function Page() {
                 modelId: job.modelId,
                 apiKey: job.apiKey,
                 prompt: job.prompt,
+                turns: job.turns,
                 temperature: config.temperature,
                 maxTokens: config.maxTokens,
               }),
@@ -334,6 +348,8 @@ export default function Page() {
         onClose={() => setPanel(null)}
         probe={{ ...probe, measurement: probe.measurement || draft }}
         setProbe={setProbe}
+        models={models}
+        config={config}
       />
       <HelpPanel open={panel === "help"} onClose={() => setPanel(null)} />
     </div>

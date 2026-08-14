@@ -30,6 +30,28 @@ function badRequest(message, status = 400) {
   return Response.json({ ok: false, error: message }, { status });
 }
 
+// Providers disagree about what they will accept, but all of them are happier
+// with a clean alternating transcript that opens on the user. Merging adjacent
+// same-role turns is lossless here: two consecutive user messages read the same
+// as one message with a blank line in it.
+function normaliseTurns(turns) {
+  const out = [];
+  for (const t of turns) {
+    const role = t?.role === "assistant" ? "assistant" : "user";
+    const content = String(t?.content ?? "").trim();
+    if (!content) continue;
+    if (out.length && out[out.length - 1].role === role) {
+      out[out.length - 1].content += "\n\n" + content;
+    } else {
+      out.push({ role, content });
+    }
+  }
+  // Anthropic rejects a transcript that starts with an assistant turn, and the
+  // OpenAI-compatible providers behave oddly with one. Drop any leading ones.
+  while (out.length && out[0].role !== "user") out.shift();
+  return out;
+}
+
 function checkUrl(raw) {
   let u;
   try {
@@ -51,14 +73,15 @@ function checkUrl(raw) {
   return { ok: true, url: u };
 }
 
-async function callOpenAICompatible({ baseUrl, apiKey, modelId, prompt, temperature, maxTokens, system, probe }) {
+async function callOpenAICompatible({ baseUrl, apiKey, modelId, prompt, turns, temperature, maxTokens, system, probe }) {
   const endpoint = baseUrl.replace(/\/+$/, "") + "/chat/completions";
   const check = checkUrl(endpoint);
   if (!check.ok) return { ok: false, error: check.error };
 
   const messages = [];
   if (system && system.trim()) messages.push({ role: "system", content: system });
-  messages.push({ role: "user", content: prompt });
+  if (turns && turns.length) messages.push(...turns);
+  else messages.push({ role: "user", content: prompt });
 
   const headers = {
     "Content-Type": "application/json",
@@ -141,7 +164,7 @@ async function callOpenAICompatible({ baseUrl, apiKey, modelId, prompt, temperat
   };
 }
 
-async function callAnthropic({ baseUrl, apiKey, modelId, prompt, temperature, maxTokens, system, probe }) {
+async function callAnthropic({ baseUrl, apiKey, modelId, prompt, turns, temperature, maxTokens, system, probe }) {
   const endpoint = (baseUrl || "https://api.anthropic.com/v1").replace(/\/+$/, "") + "/messages";
   const check = checkUrl(endpoint);
   if (!check.ok) return { ok: false, error: check.error };
@@ -150,7 +173,7 @@ async function callAnthropic({ baseUrl, apiKey, modelId, prompt, temperature, ma
     model: modelId,
     max_tokens: maxTokens,
     temperature,
-    messages: [{ role: "user", content: prompt }],
+    messages: turns && turns.length ? turns : [{ role: "user", content: prompt }],
   };
   if (system && system.trim()) body.system = system;
 
@@ -206,11 +229,15 @@ export async function POST(request) {
     modelId: rawModelId,
     apiKey: rawApiKey,
     prompt,
+    turns: rawTurns,
     system = "",
     temperature = 1,
     maxTokens = 512,
     mode = "run",
   } = body || {};
+
+  // A framing can arrive as a conversation rather than a single prefix.
+  const turns = Array.isArray(rawTurns) ? normaliseTurns(rawTurns) : null;
 
   // Pasted keys routinely carry a leading/trailing space or a stray newline,
   // which produces a malformed Authorization header and an opaque 401.
@@ -220,14 +247,14 @@ export async function POST(request) {
 
   if (!apiKey) return badRequest("No API key supplied for this model slot.");
   if (!modelId) return badRequest("No model ID supplied for this model slot.");
-  if (!prompt) return badRequest("Empty prompt.");
+  if (!prompt && !(turns && turns.length)) return badRequest("Empty prompt.");
 
   const temp = Math.max(0, Math.min(2, Number(temperature) || 0));
   const maxTok = Math.max(16, Math.min(4096, Number(maxTokens) || 512));
 
   try {
     const args = {
-      baseUrl, apiKey, modelId, prompt, system,
+      baseUrl, apiKey, modelId, prompt, turns, system,
       temperature: temp, maxTokens: maxTok,
       probe: mode === "check",
     };
