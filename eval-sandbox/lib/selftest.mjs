@@ -149,7 +149,7 @@ check("cells split by model", cells.length, 2);
 // mangles a transcript still returns something, and the run proceeds against an
 // input nobody looked at. So check the boundaries, not just the happy path.
 
-const { parseTurns, renderTurns } = await load("turns.js");
+const { parseTurns, renderTurns, linesToUserTurns, framingTurns } = await load("turns.js");
 
 console.log("\nconversation turns");
 
@@ -189,6 +189,24 @@ check(
   ]),
   "USER: a\n\nASSISTANT: b"
 );
+
+check("each line is a user turn before generation", linesToUserTurns("first\n\nsecond\n"), [
+  { role: "user", content: "first" },
+  { role: "user", content: "second" },
+]);
+
+// Conversation mode is a switch, not a guess. A prompt that happens to contain
+// "USER:" must not silently become a transcript when the switch is off.
+check("switch off means prefix mode", framingTurns("USER: hi\nASSISTANT: there", false), null);
+check("switch on, plain lines become user turns", framingTurns("hi\nthere", true), [
+  { role: "user", content: "hi" },
+  { role: "user", content: "there" },
+]);
+check("switch on, a generated transcript keeps its roles", framingTurns("USER: hi\nASSISTANT: there", true), [
+  { role: "user", content: "hi" },
+  { role: "assistant", content: "there" },
+]);
+check("switch on with nothing typed", framingTurns("   ", true), null);
 
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

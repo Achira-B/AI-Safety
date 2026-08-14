@@ -48,3 +48,30 @@ export function renderTurns(turns) {
     .map((t) => `${t.role.toUpperCase()}: ${t.content}`)
     .join("\n\n");
 }
+
+/**
+ * Before a conversation has been generated, the box holds only the user's
+ * side — one message per line, no markers to learn.
+ */
+export function linesToUserTurns(text) {
+  return String(text ?? "")
+    .split(/\n+/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((content) => ({ role: "user", content }));
+}
+
+/**
+ * What a framing should be sent as, given its mode.
+ *
+ * Conversation mode is an explicit switch rather than something inferred from
+ * the text, so a stray "USER:" in a prompt can never silently change how a
+ * run is sent. Returns null when the framing is an ordinary prefix.
+ */
+export function framingTurns(text, multi) {
+  if (!multi) return null;
+  const parsed = parseTurns(text);
+  if (parsed) return parsed;
+  const lines = linesToUserTurns(text);
+  return lines.length ? lines : null;
+}

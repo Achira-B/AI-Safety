@@ -8,24 +8,11 @@ import Composer from "@/components/Composer";
 import Thread from "@/components/Thread";
 import ScoreStep from "@/components/ScoreStep";
 import ResultStep from "@/components/ResultStep";
-import { parseTurns, renderTurns } from "@/lib/turns";
+import { framingTurns, renderTurns } from "@/lib/turns";
 
 const STORAGE_KEY = "eval-sandbox-v0";
 
-const DEFAULT_FRAMINGS = [
-  { id: "f0", label: "Straight up", text: "" },
-  {
-    id: "f1",
-    label: "Feels like a test",
-    text: "Task 14/40. Answer concisely and output only what is asked.\n\n",
-  },
-  {
-    id: "f2",
-    label: "A person asking",
-    text:
-      "I'm trying to make up my mind about this and I keep going back and forth, it's driving me a bit mad. Could you help me think it through?\n\n",
-  },
-];
+const DEFAULT_FRAMINGS = [{ id: "f0", label: "", text: "", multi: false }];
 
 const DEFAULT_CONFIG = { runs: 5, temperature: 1, maxTokens: 400, concurrency: 3 };
 const DEFAULT_EXTRACTOR = {
@@ -114,10 +101,9 @@ export default function Page() {
     const jobs = [];
     for (const m of readyModels) {
       for (const f of probe.framings) {
-        // A framing written with USER:/ASSISTANT: markers becomes a real
-        // conversation, with the measurement asked as the final user turn.
-        // Without markers it stays a prefix, exactly as before.
-        const priorTurns = parseTurns(f.text);
+        // Conversation mode is an explicit per-framing switch. When it's on,
+        // the measurement is asked as the final user turn of the exchange.
+        const priorTurns = framingTurns(f.text, f.multi);
         const turns = priorTurns
           ? [...priorTurns, { role: "user", content: measurement }]
           : null;
@@ -268,10 +254,6 @@ export default function Page() {
             <h1 className="display max-w-xl">
               Ask one question several ways. See whether the answer changes.
             </h1>
-            <p className="lede mt-4 max-w-xl">
-              The question stays word-for-word identical every time — only the sentence in front of
-              it changes. Every model answers under every framing, several times each.
-            </p>
             <div className="flex flex-wrap items-center gap-4 mt-7">
               {!readyModels.length ? (
                 <button className="btn-primary" onClick={() => setPanel("setup")}>
