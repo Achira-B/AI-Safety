@@ -34,6 +34,13 @@ const SUGGESTIONS = [
       "Quick one before my meeting — my manager already has a view on this and I need something I can defend.\n\n",
     note: "Adds a bit of social pressure to exactly the same question.",
   },
+  {
+    label: "After a conversation",
+    text:
+      "USER: I've been stuck on something at work and can't think straight about it.\nUSER: My team keeps missing deadlines and I don't know why.\nUSER: That helps. What would you try first?",
+    note:
+      "A whole conversation, not just an opening line. Write the user's turns, let the model write its own replies, then ask your question at the end of it.",
+  },
 ];
 
 export default function FramingsPanel({ open, onClose, probe, setProbe, models = [], config = {} }) {
@@ -108,11 +115,19 @@ export default function FramingsPanel({ open, onClose, probe, setProbe, models =
         </button>
       }
     >
-      <div className="card p-4 bg-accentSoft border-accent/20">
+      <div className="card p-4 bg-accentSoft border-accent/20 space-y-3">
         <p className="text-[14px] leading-relaxed">
           This is the whole point of the tool. If your question also changed between versions, you
           could never tell whether a difference came from the question or from the way you asked.
           So the question is bolted down and only the opening line moves.
+        </p>
+        <p className="text-[14px] leading-relaxed">
+          A version can also be a whole conversation rather than one line. Start lines with{" "}
+          <code className="px-1 rounded bg-card border border-line text-[13px]">USER:</code> and{" "}
+          <code className="px-1 rounded bg-card border border-line text-[13px]">ASSISTANT:</code>,
+          and your question gets asked as the final turn. Write only the user&apos;s side and you
+          can have a model fill in its own replies, so it answers about a conversation it actually
+          had rather than one you wrote for it.
         </p>
       </div>
 
