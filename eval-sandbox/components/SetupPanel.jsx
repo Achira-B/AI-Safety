@@ -339,10 +339,28 @@ export default function SetupPanel({
                 onChange={(e) => setConfig({ ...config, concurrency: Number(e.target.value) })}
               />
             </div>
+            <div>
+              <span className="label">Wait between</span>
+              <input
+                type="number"
+                min={0}
+                max={60000}
+                step={250}
+                className="field"
+                value={config.delayMs ?? 0}
+                onChange={(e) => setConfig({ ...config, delayMs: Number(e.target.value) || 0 })}
+              />
+            </div>
           </div>
           <p className="hint mt-2">
             Randomness is kept the same for every model and every way of asking — otherwise a
             difference could be caused by that rather than by what you were testing.
+          </p>
+          <p className="hint mt-1">
+            Free tiers often limit requests per minute as well as per day. If you are seeing 429s,
+            set <em>At once</em> to 1 and <em>Wait between</em> to a few thousand milliseconds — a
+            slow run that finishes beats a fast one full of holes. Reasoning models that emit a
+            thinking block need <em>Reply length</em> well above 1000, or the answer never arrives.
           </p>
         </details>
       </div>

@@ -14,7 +14,7 @@ const STORAGE_KEY = "eval-sandbox-v0";
 
 const DEFAULT_FRAMINGS = [{ id: "f0", label: "", text: "", multi: false }];
 
-const DEFAULT_CONFIG = { runs: 5, temperature: 1, maxTokens: 400, concurrency: 3 };
+const DEFAULT_CONFIG = { runs: 5, temperature: 1, maxTokens: 400, concurrency: 3, delayMs: 0 };
 const DEFAULT_EXTRACTOR = {
   id: "favouritism",
   nItems: 3,
@@ -144,6 +144,14 @@ export default function Page() {
     async function worker() {
       while (cursor < jobs.length && !cancelRef.current) {
         const job = jobs[cursor++];
+        // A deliberate pause between calls. Free tiers cap requests per minute
+        // as well as per day, and a run riddled with 429s costs more quota than
+        // a slow one that completes. Skipped for the very first job.
+        const wait = Number(config.delayMs) || 0;
+        if (wait > 0 && cursor > 1) {
+          await new Promise((r) => setTimeout(r, wait));
+          if (cancelRef.current) break;
+        }
         let response = "";
         let error = "";
         // Rate limits are transient and vary by provider and tier, so back off
