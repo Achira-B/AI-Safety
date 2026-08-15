@@ -9,11 +9,11 @@ export default function FramingsPanel({ open, onClose, probe, setProbe, models =
   const { framings, measurement } = probe;
 
   const [busy, setBusy] = useState(null);
+  const [status, setStatus] = useState("");
   const [genError, setGenError] = useState({});
-  const [genModel, setGenModel] = useState("");
+  const [preview, setPreview] = useState({});
 
   const ready = models.filter((m) => m.enabled && m.name && m.modelId && m.apiKey);
-  const chosen = ready.find((m) => m.name === genModel) || ready[0];
 
   function update(id, patch) {
     setProbe({
@@ -27,36 +27,57 @@ export default function FramingsPanel({ open, onClose, probe, setProbe, models =
       ...probe,
       framings: [
         ...framings,
-        { id: `f${Date.now()}${framings.length}`, label: "", text: "", multi: false },
+        { id: `f${Date.now()}${framings.length}`, label: "", text: "", multi: false, transcripts: {} },
       ],
     });
   }
 
-  // A conversation that has no assistant turns yet is waiting to be held.
-  function needsReplies(f) {
-    if (!f.multi) return false;
-    const parsed = parseTurns(f.text);
-    if (parsed) return parsed.every((t) => t.role === "user");
-    return framingTurns(f.text, true) !== null;
-  }
-
-  async function generate(f) {
+  /**
+   * Generate this framing's conversation once per model, and keep each one
+   * under that model's name. The script itself is never overwritten, so it can
+   * be reused, edited, and regenerated without being retyped.
+   *
+   * Storing per model also removes a silent failure: previously one framing
+   * held one transcript, so running a second model without regenerating fed it
+   * the first model's replies and nothing said so.
+   */
+  async function generate(f, only = null) {
     const turns = framingTurns(f.text, true);
-    if (!turns || !chosen) return;
+    if (!turns) return;
+    const targets = only ? ready.filter((m) => m.name === only) : ready;
+    if (!targets.length) return;
 
     setBusy(f.id);
     setGenError((e) => ({ ...e, [f.id]: "" }));
 
-    const result = await generateTranscript({
-      model: chosen,
-      userTurns: turns.filter((t) => t.role === "user").map((t) => t.content),
-      temperature: config.temperature ?? 1,
-      maxTokens: config.maxTokens ?? 512,
-    });
+    const next = { ...(f.transcripts || {}) };
+    const failed = [];
 
-    if (result.turns.length) update(f.id, { text: renderTurns(result.turns) });
-    if (!result.ok) setGenError((e) => ({ ...e, [f.id]: result.error }));
+    for (const m of targets) {
+      setStatus(`${m.name}…`);
+      const result = await generateTranscript({
+        model: m,
+        userTurns: turns.filter((t) => t.role === "user").map((t) => t.content),
+        temperature: config.temperature ?? 1,
+        maxTokens: config.maxTokens ?? 512,
+      });
+      if (result.ok) next[m.name] = renderTurns(result.turns);
+      else failed.push(`${m.name}: ${result.error}`);
+      // Generation is a burst of calls in a row; respect the same pause the
+      // main run uses so this doesn't burn the day's quota on 429s.
+      const wait = Number(config.delayMs) || 0;
+      if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+    }
+
+    update(f.id, { transcripts: next });
+    if (failed.length) setGenError((e) => ({ ...e, [f.id]: failed.join(" · ") }));
+    setStatus("");
     setBusy(null);
+  }
+
+  function clearTranscripts(f) {
+    update(f.id, { transcripts: {} });
+    setPreview((p) => ({ ...p, [f.id]: "" }));
   }
 
   return (
@@ -71,90 +92,155 @@ export default function FramingsPanel({ open, onClose, probe, setProbe, models =
         </button>
       }
     >
-      {framings.map((f) => (
-        <div key={f.id} className="card p-4 space-y-3">
-          <div className="flex items-center gap-3">
-            <input
-              className="field py-1.5 font-medium"
-              placeholder="Framing name"
-              value={f.label}
-              onChange={(e) => update(f.id, { label: e.target.value })}
-            />
-            {framings.length > 1 && (
-              <button
-                className="btn-quiet text-[13px] shrink-0"
-                onClick={() =>
-                  setProbe({ ...probe, framings: framings.filter((x) => x.id !== f.id) })
-                }
-              >
-                remove
-              </button>
-            )}
-          </div>
+      {framings.map((f) => {
+        const made = Object.keys(f.transcripts || {});
+        const missing = ready.filter((m) => !made.includes(m.name));
+        const shown = preview[f.id] && f.transcripts?.[preview[f.id]];
 
-          <label className="flex items-center gap-2 text-[13px] cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={!!f.multi}
-              onChange={(e) => update(f.id, { multi: e.target.checked })}
-            />
-            <span>Conversation</span>
-            <span className="text-faint">
-              {f.multi ? "asked at the end of an exchange" : "asked after a single opening"}
-            </span>
-          </label>
-
-          <textarea
-            className="field h-24 resize-y"
-            placeholder={
-              f.multi
-                ? "One user message per line. Then generate the replies."
-                : "Leave empty to ask the question with nothing in front of it."
-            }
-            value={f.text}
-            onChange={(e) => update(f.id, { text: e.target.value })}
-          />
-
-          {needsReplies(f) && (
-            <div className="flex items-center gap-2">
-              <button
-                className="btn text-[13px]"
-                disabled={!chosen || busy === f.id}
-                onClick={() => generate(f)}
-              >
-                {busy === f.id ? "Holding the conversation…" : "Generate replies"}
-              </button>
-              {ready.length > 1 && (
-                <select
-                  className="field py-1.5 text-[13px] w-auto"
-                  value={chosen?.name ?? ""}
-                  onChange={(e) => setGenModel(e.target.value)}
+        return (
+          <div key={f.id} className="card p-4 space-y-3">
+            <div className="flex items-center gap-3">
+              <input
+                className="field py-1.5 font-medium"
+                placeholder="Framing name"
+                value={f.label}
+                onChange={(e) => update(f.id, { label: e.target.value })}
+              />
+              {framings.length > 1 && (
+                <button
+                  className="btn-quiet text-[13px] shrink-0"
+                  onClick={() =>
+                    setProbe({ ...probe, framings: framings.filter((x) => x.id !== f.id) })
+                  }
                 >
-                  {ready.map((m) => (
-                    <option key={m.name} value={m.name}>{m.name}</option>
-                  ))}
-                </select>
+                  remove
+                </button>
               )}
-              {!chosen && <span className="hint">Connect a model first.</span>}
             </div>
-          )}
 
-          {genError[f.id] && <p className="text-[13px] text-bad">{genError[f.id]}</p>}
+            <label className="flex items-center gap-2 text-[13px] cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={!!f.multi}
+                onChange={(e) => update(f.id, { multi: e.target.checked })}
+              />
+              <span>Conversation</span>
+              <span className="text-faint">
+                {f.multi ? "asked at the end of an exchange" : "asked after a single opening"}
+              </span>
+            </label>
 
-          <div className="rounded-lg bg-paper border border-line p-3 text-[13px] leading-relaxed">
-            <span className="text-faint whitespace-pre-wrap">{f.text || "(nothing) "}</span>
-            <span className="text-ink whitespace-pre-wrap">
-              {"\n\n"}
-              {measurement
-                ? measurement.slice(0, 90) + (measurement.length > 90 ? "…" : "")
-                : "your question"}
-            </span>
-            <span className="block mt-2 text-faint text-[12px]">
-              grey = what comes before · black = your question, identical everywhere
-            </span>
+            <div>
+              <textarea
+                className="field h-24 resize-y"
+                placeholder={
+                  f.multi
+                    ? "One user message per line. This stays put — generating replies won't overwrite it."
+                    : "Leave empty to ask the question with nothing in front of it."
+                }
+                value={f.text}
+                onChange={(e) => update(f.id, { text: e.target.value })}
+              />
+              {f.multi && (
+                <p className="hint mt-1">
+                  Your side of the conversation. Each model writes its own replies to it.
+                </p>
+              )}
+            </div>
+
+            {f.multi && framingTurns(f.text, true) && (
+              <div className="rounded-lg border border-line bg-paper p-3 space-y-2.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    className="btn text-[13px]"
+                    disabled={!ready.length || busy === f.id}
+                    onClick={() => generate(f)}
+                  >
+                    {busy === f.id
+                      ? `Holding the conversation… ${status}`
+                      : made.length
+                        ? "Regenerate for all models"
+                        : `Generate replies · ${ready.length} model${ready.length === 1 ? "" : "s"}`}
+                  </button>
+                  {made.length > 0 && (
+                    <button
+                      className="btn-quiet text-[13px]"
+                      disabled={busy === f.id}
+                      onClick={() => clearTranscripts(f)}
+                    >
+                      clear
+                    </button>
+                  )}
+                  {!ready.length && <span className="hint">Connect a model first.</span>}
+                </div>
+
+                {ready.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {ready.map((m) => {
+                      const has = made.includes(m.name);
+                      return (
+                        <button
+                          key={m.name}
+                          disabled={busy === f.id}
+                          onClick={() =>
+                            has
+                              ? setPreview((p) => ({
+                                  ...p,
+                                  [f.id]: p[f.id] === m.name ? "" : m.name,
+                                }))
+                              : generate(f, m.name)
+                          }
+                          className={`px-2 py-1 rounded-lg border text-[12.5px] transition ${
+                            has
+                              ? "border-good/40 bg-good/5 text-ink"
+                              : "border-line text-faint hover:border-accent/50"
+                          }`}
+                          title={has ? "Show what this model wrote" : "Generate for this model"}
+                        >
+                          {has ? "✓ " : "+ "}
+                          {m.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {missing.length > 0 && made.length > 0 && (
+                  <p className="text-[12.5px] text-warn leading-relaxed">
+                    No conversation yet for {missing.map((m) => m.name).join(", ")}. Those models
+                    will be sent your script as plain messages instead, which is not the same
+                    stimulus — generate before running.
+                  </p>
+                )}
+
+                {shown && (
+                  <div className="rounded-lg border border-line bg-card p-3 max-h-56 overflow-y-auto scroll-thin">
+                    <p className="text-[12px] text-faint mb-1.5">{preview[f.id]} wrote:</p>
+                    <p className="text-[13px] leading-relaxed whitespace-pre-wrap">{shown}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {genError[f.id] && <p className="text-[13px] text-bad">{genError[f.id]}</p>}
+
+            <div className="rounded-lg bg-paper border border-line p-3 text-[13px] leading-relaxed">
+              <span className="text-faint whitespace-pre-wrap">
+                {shown || f.text || "(nothing) "}
+              </span>
+              <span className="text-ink whitespace-pre-wrap">
+                {"\n\n"}
+                {measurement
+                  ? measurement.slice(0, 90) + (measurement.length > 90 ? "…" : "")
+                  : "your question"}
+              </span>
+              <span className="block mt-2 text-faint text-[12px]">
+                grey = what comes before · black = your question, identical everywhere
+              </span>
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
 
       <button className="btn w-full justify-center" onClick={add}>
         + Add a framing

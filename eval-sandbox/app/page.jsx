@@ -12,7 +12,7 @@ import { framingTurns, renderTurns } from "@/lib/turns";
 
 const STORAGE_KEY = "eval-sandbox-v0";
 
-const DEFAULT_FRAMINGS = [{ id: "f0", label: "", text: "", multi: false }];
+const DEFAULT_FRAMINGS = [{ id: "f0", label: "", text: "", multi: false, transcripts: {} }];
 
 const DEFAULT_CONFIG = { runs: 5, temperature: 1, maxTokens: 400, concurrency: 3, delayMs: 0 };
 const DEFAULT_EXTRACTOR = {
@@ -103,7 +103,13 @@ export default function Page() {
       for (const f of probe.framings) {
         // Conversation mode is an explicit per-framing switch. When it's on,
         // the measurement is asked as the final user turn of the exchange.
-        const priorTurns = framingTurns(f.text, f.multi);
+        //
+        // Each model gets the conversation *it* generated. Falling back to the
+        // raw script when one is missing is deliberate: better a stimulus that
+        // is visibly different in the CSV than one model silently answering
+        // inside another model's replies.
+        const source = (f.multi && f.transcripts?.[m.name]) || f.text;
+        const priorTurns = framingTurns(source, f.multi);
         const turns = priorTurns
           ? [...priorTurns, { role: "user", content: measurement }]
           : null;
@@ -117,7 +123,9 @@ export default function Page() {
             modelId: m.modelId,
             apiKey: m.apiKey,
             framingLabel: f.label,
-            framingText: f.text,
+            // What this model actually saw, not what was typed into the box.
+            framingText: source,
+            transcriptFrom: f.multi && f.transcripts?.[m.name] ? m.name : "",
             measurementText: measurement,
             turns,
             turnCount: turns ? turns.length : 1,
