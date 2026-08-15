@@ -14,6 +14,26 @@
 // as a prefix to the measurement, in a single user message. Nothing that
 // worked yesterday changes.
 
+/**
+ * How long to wait after a rate-limit error.
+ *
+ * Providers normally state the wait in the error body — Groq says "Please try
+ * again in 2.9175s", others send retry-after in seconds. Reading it is better
+ * than blind exponential backoff, which gives up too early on a per-minute
+ * quota and oversleeps on a short one. Falls back to the caller's own delay.
+ * Capped so a bad parse can never hang a run for an hour.
+ */
+export function retryDelay(error, fallback = 1500) {
+  const text = String(error ?? "");
+  const m =
+    /try again in\s*([\d.]+)\s*s/i.exec(text) ||
+    /retry[-_ ]?after["':\s]+([\d.]+)/i.exec(text);
+  if (!m) return fallback;
+  const secs = parseFloat(m[1]);
+  if (!Number.isFinite(secs) || secs <= 0) return fallback;
+  return Math.min(Math.ceil(secs * 1000) + 750, 90_000);
+}
+
 const MARKER = /^[ \t]*(user|assistant)[ \t]*:/im;
 const SPLIT = /^[ \t]*(user|assistant)[ \t]*:/gim;
 

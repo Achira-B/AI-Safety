@@ -8,7 +8,7 @@ import Composer from "@/components/Composer";
 import Thread from "@/components/Thread";
 import ScoreStep from "@/components/ScoreStep";
 import ResultStep from "@/components/ResultStep";
-import { framingTurns, renderTurns } from "@/lib/turns";
+import { framingTurns, renderTurns, retryDelay } from "@/lib/turns";
 import { download } from "@/lib/csv";
 
 const STORAGE_KEY = "eval-sandbox-v0";
@@ -166,7 +166,7 @@ export default function Page() {
         // Rate limits are transient and vary by provider and tier, so back off
         // and retry rather than asking anyone to know each provider's limit.
         let delay = 1500;
-        for (let attempt = 0; attempt < 4; attempt++) {
+        for (let attempt = 0; attempt < 6; attempt++) {
           try {
             const res = await fetch("/api/run", {
               method: "POST",
@@ -194,7 +194,10 @@ export default function Page() {
           }
           const rateLimited = /\b429\b|rate.?limit|too many requests/i.test(error);
           if (!rateLimited || cancelRef.current) break;
-          await new Promise((r) => setTimeout(r, delay));
+          // Providers usually say how long to wait — "Please try again in 2.9175s",
+          // or a retry-after in seconds. Honouring that beats doubling blindly,
+          // which either gives up too early or sleeps far longer than needed.
+          await new Promise((r) => setTimeout(r, retryDelay(error, delay)));
           delay *= 2;
         }
         const { apiKey, ...safe } = job;

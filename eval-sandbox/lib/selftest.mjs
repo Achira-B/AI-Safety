@@ -149,7 +149,25 @@ check("cells split by model", cells.length, 2);
 // mangles a transcript still returns something, and the run proceeds against an
 // input nobody looked at. So check the boundaries, not just the happy path.
 
-const { parseTurns, renderTurns, linesToUserTurns, framingTurns } = await load("turns.js");
+const { parseTurns, renderTurns, linesToUserTurns, framingTurns, retryDelay } = await load(
+  "turns.js"
+);
+
+// A rate-limit error usually states the wait. Getting this wrong is expensive
+// in both directions: too short and the retry burns another call for nothing,
+// too long and an unattended run takes hours.
+console.log("\nretry delay");
+check(
+  "reads the provider's stated wait",
+  retryDelay("HTTP 429 — Please try again in 2.9175s. Need more tokens?"),
+  3668 // ceil(2917.5) + 750
+);
+check("reads retry-after", retryDelay('{"retry_after": 12}'), 12750);
+check("falls back when no hint", retryDelay("HTTP 429 rate limited", 4000), 4000);
+check("falls back on rubbish", retryDelay("try again in abcs", 4000), 4000);
+check("ignores a negative wait", retryDelay("try again in -3s", 4000), 4000);
+check("caps a huge wait", retryDelay("try again in 9999s"), 90000);
+check("handles no error at all", retryDelay(null, 1500), 1500);
 
 console.log("\nconversation turns");
 

@@ -15,6 +15,8 @@
 // study. That keeps the stimulus identical between runs, which is what you
 // need to measure variance, and costs one pass instead of one per repeat.
 
+import { retryDelay } from "./turns";
+
 export async function generateTranscript({
   model,
   userTurns,
@@ -31,31 +33,50 @@ export async function generateTranscript({
     turns.push({ role: "user", content });
     onProgress?.(i + 1, userTurns.length);
 
-    let data;
-    try {
-      const res = await fetch("/api/run", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          provider: model.provider,
-          baseUrl: model.baseUrl,
-          modelId: model.modelId,
-          apiKey: model.apiKey,
-          turns,
-          prompt: content,
-          temperature,
-          maxTokens,
-        }),
-      });
-      data = await res.json();
-    } catch (err) {
-      return { ok: false, error: String(err?.message || err), turns };
+    // Rate limits are the normal case on free tiers, not an exception. Without
+    // a retry here a single 429 on turn two throws away the whole conversation
+    // and the calls already spent on it.
+    let data = null;
+    let error = "";
+    let backoff = 1500;
+
+    for (let attempt = 0; attempt < 6; attempt++) {
+      try {
+        const res = await fetch("/api/run", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            provider: model.provider,
+            baseUrl: model.baseUrl,
+            modelId: model.modelId,
+            apiKey: model.apiKey,
+            turns,
+            prompt: content,
+            temperature,
+            maxTokens,
+          }),
+        });
+        data = await res.json();
+      } catch (err) {
+        data = null;
+        error = String(err?.message || err);
+      }
+
+      if (data?.ok) {
+        error = "";
+        break;
+      }
+      error = data?.error || error || "Generation failed.";
+
+      if (!/\b429\b|rate.?limit|too many requests/i.test(error)) break;
+      await new Promise((r) => setTimeout(r, retryDelay(error, backoff)));
+      backoff *= 2;
     }
 
     if (!data?.ok) {
       // Hand back the partial transcript. A conversation that died on turn
       // three is still worth seeing before you decide what to do about it.
-      return { ok: false, error: data?.error || "Generation failed.", turns };
+      return { ok: false, error, turns };
     }
 
     turns.push({ role: "assistant", content: data.text });
