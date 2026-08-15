@@ -112,8 +112,8 @@ export function summaryToCSV(cells) {
   return lines.join("\n");
 }
 
-export function download(filename, text) {
-  const blob = new Blob([text], { type: "text/csv;charset=utf-8;" });
+export function download(filename, text, type = "text/csv;charset=utf-8;") {
+  const blob = new Blob([text], { type });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;

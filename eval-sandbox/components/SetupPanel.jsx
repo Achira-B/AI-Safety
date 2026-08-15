@@ -241,6 +241,8 @@ export default function SetupPanel({
   remember,
   setRemember,
   onClearAll,
+  onExport,
+  onImport,
   max = 8,
 }) {
   return (
@@ -260,6 +262,39 @@ export default function SetupPanel({
         </div>
       }
     >
+      <div className="card p-4 space-y-2.5">
+        <div>
+          <h3 className="font-medium text-[15px]">Save your setup to a file</h3>
+          <p className="hint mt-0.5">
+            Everything here is kept in this browser, tied to this exact web address. A new
+            deployment URL, another browser, or a cleared cache and it is gone. Export once and you
+            can put it all back in a click — no account, no server holding your keys.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button className="btn text-[13px]" onClick={onExport}>
+            Export setup
+          </button>
+          <label className="btn text-[13px] cursor-pointer">
+            Import setup
+            <input
+              type="file"
+              accept="application/json,.json"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                e.target.value = "";
+                onImport?.(f);
+              }}
+            />
+          </label>
+        </div>
+        <p className="text-[12.5px] text-warn leading-relaxed">
+          The file contains your API keys in plain text. Keep it somewhere you would keep a
+          password, and don&apos;t commit it to a repository.
+        </p>
+      </div>
+
       {models.map((m, i) => (
         <ModelCard
           key={m.id}

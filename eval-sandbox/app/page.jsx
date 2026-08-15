@@ -9,6 +9,7 @@ import Thread from "@/components/Thread";
 import ScoreStep from "@/components/ScoreStep";
 import ResultStep from "@/components/ResultStep";
 import { framingTurns, renderTurns } from "@/lib/turns";
+import { download } from "@/lib/csv";
 
 const STORAGE_KEY = "eval-sandbox-v0";
 
@@ -217,6 +218,58 @@ export default function Page() {
     setRunning(false);
   }
 
+  /**
+   * Everything lives in this browser's localStorage, which is scoped to the
+   * exact origin. A new deployment URL, a different browser or a cleared cache
+   * means starting from nothing — models, keys, framings, generated
+   * transcripts, all of it.
+   *
+   * So the setup is a file you own. No account, no server, nothing holding
+   * your API keys but your own disk.
+   */
+  function exportSettings() {
+    download(
+      `eval-sandbox-setup-${new Date().toISOString().slice(0, 10)}.json`,
+      JSON.stringify(
+        {
+          kind: "eval-sandbox-settings",
+          version: 1,
+          savedAt: new Date().toISOString(),
+          models,
+          framings: probe.framings,
+          draft,
+          config,
+          extractor,
+        },
+        null,
+        2
+      ),
+      "application/json"
+    );
+  }
+
+  async function importSettings(file) {
+    if (!file) return;
+    let s;
+    try {
+      s = JSON.parse(await file.text());
+    } catch {
+      alert("That file isn't readable as JSON.");
+      return;
+    }
+    if (s?.kind !== "eval-sandbox-settings") {
+      alert("That doesn't look like an Eval Sandbox setup file.");
+      return;
+    }
+    if (Array.isArray(s.models) && s.models.length) setModels(s.models);
+    if (Array.isArray(s.framings) && s.framings.length)
+      setProbe((p) => ({ ...p, framings: s.framings }));
+    if (typeof s.draft === "string") setDraft(s.draft);
+    if (s.config) setConfig({ ...DEFAULT_CONFIG, ...s.config });
+    if (s.extractor) setExtractor(s.extractor);
+    setPanel(null);
+  }
+
   function clearAll() {
     if (!confirm("Clear your models, keys, questions and results from this browser?")) return;
     try {
@@ -340,6 +393,8 @@ export default function Page() {
         remember={remember}
         setRemember={setRemember}
         onClearAll={clearAll}
+        onExport={exportSettings}
+        onImport={importSettings}
       />
       <FramingsPanel
         open={panel === "framings"}
